@@ -1,0 +1,34 @@
+api 23
+
+AlertDialog存在title字体超2行变为固定20sp的问题
+
+Android原生代码的坑
+
+DingtalkUI对AlertDialog的title做了theme设置, DtTheme.Widget.Dialog.Alert.Title
+这个style继承自RtlOverlay.DialogWindowTitle.AppCompat, 再上层是Base.DialogWindowTitle.AppCompat (原生style)
+在Base.DialogWindowTitle.AppCompat中, 定义了一个属性maxLines=1
+
+但是, AlertDialog的title是一个DialogTitle, 这个类继承自textView, 同时内部实现onMeasure, 有以下逻辑:
+
+final int lineCount = layout.getLineCount();
+if (lineCount > 0) {
+    final int ellipsisCount = layout.getEllipsisCount(lineCount - 1); // 在原生定义的maxLines=1的情况下, 超过1行的字符会隐去变成点点点, 获取隐去的字符数
+    if (ellipsisCount > 0) { // 说明超过一行
+        setSingleLine(false);
+        setMaxLines(2); // 就变成两行?
+
+        final TypedArray a = getContext().obtainStyledAttributes(null,
+                R.styleable.TextAppearance,
+                android.R.attr.textAppearanceMedium,
+                android.R.style.TextAppearance_Medium);
+        final int textSize = a.getDimensionPixelSize(
+                R.styleable.TextAppearance_android_textSize, 0);
+        if (textSize != 0) {
+            // textSize is already expressed in pixels
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize); // 而且重设字体为20sp???
+        }
+        a.recycle();
+
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+}
